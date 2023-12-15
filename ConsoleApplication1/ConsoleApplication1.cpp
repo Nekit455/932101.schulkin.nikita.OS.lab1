@@ -55,7 +55,6 @@ int main() {
     thread provider(&Monitor::providerThread, monitor);
     thread consumer(&Monitor::consumerThread, monitor);
 
-    // Ожидание завершения потоков (не обязательно, но для демонстрации)
     provider.join();
     consumer.join();
 
