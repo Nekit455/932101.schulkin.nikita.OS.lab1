@@ -8,7 +8,7 @@ bool ready = 0;
 
 void* producer(void*)
 {
-    while (true)
+    while (1)
     {
         pthread_mutex_lock(&mutex);
         if (ready)
@@ -27,7 +27,7 @@ void* producer(void*)
 
 void* consumer(void*)
 {
-    while (true)
+    while (1)
     {
         pthread_mutex_lock(&mutex);
         while (!ready)
