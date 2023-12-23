@@ -1,63 +1,52 @@
 ﻿#include <iostream>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-using namespace std;
+#include <pthread.h>
+#include <unistd.h>
 
-class Monitor {
-public:
-    Monitor() : eventCount(0), maxEventCount(5) {} // реализация для 5 событий
+pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+bool ready = 0;
 
-    // функция-поставщик
-    void providerThread() {
-        while (eventCount < maxEventCount) {
-            // Задержка в 1 секунду
-            this_thread::sleep_for(chrono::seconds(1));
-
-            {
-                unique_lock<mutex> lock(mutex_);
-                cout << "Поставщик: Инициировано условное событие.\n";
-                eventReady = true;
-                eventCount++;
-            }
-
-            conditionVariable.notify_one();
+void* producer(void*)
+{
+    while (true)
+    {
+        pthread_mutex_lock(&mutex);
+        if (ready)
+        {
+            pthread_mutex_unlock(&mutex);
+            continue;
         }
+        ready = true;
+        std::cout << "Поставщик: Инициировано условное событие" << std::endl;
+        pthread_cond_signal(&condition);
+        pthread_mutex_unlock(&mutex);
+        sleep(1);
     }
+    return nullptr;
+}
 
-    // функция-потребитель
-    void consumerThread() {
-        while (eventCount < maxEventCount) {
-            unique_lock<mutex> lock(mutex_);
-
-            // Ожидание условного события
-            conditionVariable.wait(lock, [this] { return eventReady; });
-
-            // Обработка условного события
-            cout << "Потребитель: Получено условное событие.\n";
-            eventReady = false;
+void* consumer(void*)
+{
+    while (true)
+    {
+        pthread_mutex_lock(&mutex);
+        while (!ready)
+        {
+            pthread_cond_wait(&condition, &mutex);
         }
+        ready = false;
+        std::cout << "Потребитель: Получено условное событие" << std::endl;
+        pthread_mutex_unlock(&mutex);
     }
-
-private:
-    mutex mutex_;
-    condition_variable conditionVariable;
-    bool eventReady;
-    int eventCount;
-    const int maxEventCount;
-};
+    return nullptr;
+}
 
 int main() {
-    setlocale(LC_ALL, "rus");
-    Monitor *monitor = new Monitor();
+    pthread_t producerThread, consumerThread;
 
-    // Создание и запуск потоков
-    thread provider(&Monitor::providerThread, monitor);
-    thread consumer(&Monitor::consumerThread, monitor);
-
-    // Ожидание завершения потоков (не обязательно, но для демонстрации)
-    provider.join();
-    consumer.join();
+    // Запускаем потоки
+    pthread_create(&producerThread, nullptr, producer, nullptr);
+    pthread_create(&consumerThread, nullptr, consumer, nullptr);
 
     return 0;
 }
